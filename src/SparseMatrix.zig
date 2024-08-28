@@ -7,17 +7,15 @@ const Node = struct {
     right: u16,
 };
 
-allocator: std.mem.Allocator,
 nodes: []Node,
 rowlen: u16,
 i: u16,
 
 const SparseMatrix = @This();
 
-pub fn init(al: std.mem.Allocator, rowlen: u16, capacity: u16) !SparseMatrix {
+pub fn init(allocator: std.mem.Allocator, rowlen: u16, capacity: u16) !SparseMatrix {
     const m = SparseMatrix{
-        .allocator = al,
-        .nodes = try al.alloc(Node, capacity + rowlen + 1),
+        .nodes = try allocator.alloc(Node, capacity + rowlen + 1),
         .rowlen = rowlen,
         .i = rowlen + 1,
     };
@@ -38,8 +36,8 @@ pub fn init(al: std.mem.Allocator, rowlen: u16, capacity: u16) !SparseMatrix {
     return m;
 }
 
-pub fn deinit(self: *SparseMatrix) void {
-    self.allocator.free(self.nodes);
+pub fn deinit(self: *SparseMatrix, allocator: std.mem.Allocator) void {
+    allocator.free(self.nodes);
 }
 
 pub fn algorithmX(self: *SparseMatrix, path: []u16, depth: u8) void {
