@@ -5,25 +5,16 @@ const Allocator = std.mem.Allocator;
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    const al = gpa.allocator();
+    const allocator = gpa.allocator();
 
-    // var m = try SparseMatrix.init(al, 9, 18);
-    // defer m.deinit();
-    //
-    // // Example input
-    // //   0 1 2 3 4 5 6 7 8
-    // // A 1 1         1
-    // // B     1 1   1
-    // // C 1     1 1       1
-    // // D 1   1 1   1   1 1
-    // // E   1         1
-    // m.add(&([_]u16{ 0, 1, 6 }));
-    // m.add(&([_]u16{ 2, 3, 5 }));
-    // m.add(&([_]u16{ 0, 3, 4, 8 }));
-    // m.add(&([_]u16{ 0, 2, 3, 5, 7, 8 }));
-    // m.add(&([_]u16{ 1, 6 }));
-
-    var m = try SparseMatrix.init(al, 7, 16);
+    //   1 1 2 3 4 5 6
+    //       1   1
+    //   1     1     1
+    //     1 1     1
+    //   1     1   1
+    //     1         1
+    //         1 1   1
+    var m = try SparseMatrix.init(allocator, 7, 16);
     defer m.deinit();
     m.add(&([_]u16{ 2, 4 }));
     m.add(&([_]u16{ 0, 3, 6 }));
@@ -32,16 +23,7 @@ pub fn main() !void {
     m.add(&([_]u16{ 1, 6 }));
     m.add(&([_]u16{ 3, 4, 6 }));
 
-    debug_matrix_overview(&m);
-    debug_matrix(&m);
-    print("------------------------------------\n", .{});
-
-    // m.chooserow(26);
-    // m.unchooserow(26);
-    //m.reinsertcol(9);
-    m.chooserow(7);
-    m.chooserow(15);
-    debug_matrix(&m);
+    m.algorithmX();
 }
 
 const Node = struct {
@@ -52,52 +34,71 @@ const Node = struct {
 };
 
 const SparseMatrix = struct {
-    al: Allocator,
+    allocator: Allocator,
     nodes: []Node,
     rowlen: u16,
     i: u16,
 
     fn init(al: Allocator, rowlen: u16, capacity: u16) !SparseMatrix {
         const m = SparseMatrix{
-            .al = al,
-            .nodes = try al.alloc(Node, capacity + rowlen),
+            .allocator = al,
+            .nodes = try al.alloc(Node, capacity + rowlen + 1),
             .rowlen = rowlen,
-            .i = rowlen,
+            .i = rowlen + 1,
         };
+        @memset(m.nodes, std.mem.zeroes(Node));
 
         // Setup Header nodes
-        const first = 0;
-        const last = rowlen - 1;
+        const first = 1;
+        const last = rowlen;
 
         var i: u16 = first + 1;
         while (i <= last) : (i += 1) {
             m.linkneighbors(i - 1, i);
             m.makeheader(i);
         }
-        m.makeheader(0);
+        m.makeheader(first);
         m.linkneighbors(last, 0);
+        m.linkneighbors(0, first);
         return m;
     }
 
     fn deinit(self: *SparseMatrix) void {
-        self.al.free(self.nodes);
+        self.allocator.free(self.nodes);
+    }
+
+    fn algorithmX(self: *SparseMatrix) void {
+        if (self.nodes[0].right == 0) {
+            std.debug.print("Found solution!\n", .{});
+            return;
+        }
+
+        const col_header = self.nodes[0].right;
+        var node = self.nodes[col_header].below;
+        while (node != col_header) : (node = self.nodes[node].below) {
+            self.chooserow(node);
+            self.algorithmX();
+            self.unchooserow(node);
+        }
     }
 
     // Header
     fn header(self: *SparseMatrix, col: u16) u16 {
         _ = self;
-        return col;
+        return col + 1;
     }
 
     fn isheader(self: *SparseMatrix, node: u16) bool {
-        return node < self.rowlen;
+        return node <= self.rowlen;
     }
 
+    /// Set the up and down pointer of i to point to i
     fn makeheader(self: *const SparseMatrix, i: u16) void {
         self.nodes[i].above = i;
         self.nodes[i].below = i;
     }
 
+    /// connect a left and right node with each other
     fn linkneighbors(self: *const SparseMatrix, left: u16, right: u16) void {
         self.nodes[left].right = right;
         self.nodes[right].left = left;
@@ -115,15 +116,15 @@ const SparseMatrix = struct {
     }
 
     fn add(self: *SparseMatrix, cols: []const u16) void {
-        var i: u16 = 1;
+        var i: u16 = 1; // index into nodes
         while (i < cols.len) : (i += 1) {
             const col = cols[i];
             const node = self.i + i;
-            self.vertical_insert_above(node, col);
+            self.vertical_insert_above(node, self.header(col));
             self.linkneighbors(node - 1, node);
         }
         self.linkneighbors(self.i + i - 1, self.i);
-        self.vertical_insert_above(self.i, cols[0]);
+        self.vertical_insert_above(self.i, self.header(cols[0]));
         self.i += i;
     }
 
@@ -132,11 +133,10 @@ const SparseMatrix = struct {
         while (!self.isheader(j)) {
             j = self.nodes[j].above;
         }
-        return j;
+        return j - 1;
     }
 
     fn removerow(self: *SparseMatrix, i: u16) void {
-        print("Removing row of {}\n", .{i});
         var j = self.nodes[i].right;
         while (j != i) : (j = self.nodes[j].right) {
             const node2 = self.nodes[j];
@@ -161,7 +161,6 @@ const SparseMatrix = struct {
     // Takes node as argument and uninserts the header and removes all
     // rows where the column has a node except the row of the input node
     fn removecol(self: *SparseMatrix, i: u16) void {
-        print("removing col of {}\n", .{i});
         var j = self.nodes[i].below;
         while (j != i) : (j = self.nodes[j].below) {
             if (self.isheader(j)) {
@@ -207,57 +206,84 @@ const SparseMatrix = struct {
 };
 
 fn debug_matrix_overview(m: *SparseMatrix) void {
-    for (0..m.rowlen) |i| {
-        print("  {:2}  ", .{i});
+    for (1..m.rowlen + 1) |i| {
+        print(" {:2} ", .{i});
     }
     print("\n", .{});
 
-    var i = m.rowlen;
-    var c: u16 = 0;
+    var i = m.rowlen + 1;
+    var c: u16 = 0; // Track which column we are writing to
     while (i < m.nodes.len) : (i += 1) {
         const col = m.colof(i);
         if (c > col) {
             while (c < m.rowlen) : (c += 1) {
-                print("  \x1b[38;5;236m--\x1b[0m  ", .{});
+                print(" \x1b[38;5;236m--\x1b[0m ", .{});
             }
             c = 0;
             print("\n", .{});
         }
         while (c < col) : (c += 1) {
-            print("  \x1b[38;5;236m--\x1b[0m  ", .{});
+            print(" \x1b[38;5;236m--\x1b[0m ", .{});
         }
-        print("  {:2}  ", .{i});
+        print(" {:2} ", .{i});
         c += 1;
     }
     while (c < m.rowlen) : (c += 1) {
-        print("  \x1b[38;5;236m--\x1b[0m  ", .{});
+        print(" \x1b[38;5;236m--\x1b[0m ", .{});
     }
     print("\n\n", .{});
 }
 
-fn debug_matrix(m: *SparseMatrix) void {
-    for (0..m.rowlen) |i| {
-        const node = m.nodes[i];
+fn debug_node(node: Node, active: bool) void {
+    if (active) {
+        print("  \x1b[35m{:2}_{:2}_{:2}_{:2}\x1b[0m  ", .{ node.left, node.below, node.above, node.right });
+    } else {
         print("  {:2}_{:2}_{:2}_{:2}  ", .{ node.left, node.below, node.above, node.right });
     }
-    print("\n", .{});
+}
 
-    var i = m.rowlen;
+fn debug_node_placeholder() void {
+    print("  \x1b[38;5;236m-----------\x1b[0m  ", .{});
+}
+
+fn dfs_nodes(m: *SparseMatrix, visited: []bool, node: u16) void {
+    if (visited[node]) {
+        return;
+    }
+    visited[node] = true;
+    dfs_nodes(m, visited, m.nodes[node].right);
+    dfs_nodes(m, visited, m.nodes[node].left);
+    dfs_nodes(m, visited, m.nodes[node].above);
+    dfs_nodes(m, visited, m.nodes[node].below);
+}
+
+fn debug_matrix(m: *SparseMatrix, allocator: std.mem.Allocator) !void {
+
+    // TODO: find reachable nodes from node-0
+    const visited = try allocator.alloc(bool, m.nodes.len);
+    defer allocator.free(visited);
+    dfs_nodes(m, visited, 0);
+
+    for (1..m.rowlen + 1) |i| {
+        debug_node(m.nodes[i], visited[i]);
+    }
+    print("\n\n", .{});
+
+    var i = m.rowlen + 1;
     var c: u16 = 0;
     while (i < m.nodes.len) : (i += 1) {
         const col = m.colof(i);
         if (c > col) {
             while (c < m.rowlen) : (c += 1) {
-                print("  \x1b[38;5;236m-----------\x1b[0m  ", .{});
+                debug_node_placeholder();
             }
             c = 0;
-            print("\n", .{});
+            print("\n\n", .{});
         }
         while (c < col) : (c += 1) {
-            print("  \x1b[38;5;236m-----------\x1b[0m  ", .{});
+            debug_node_placeholder();
         }
-        const node = m.nodes[i];
-        print("  {:2}_{:2}_{:2}_{:2}  ", .{ node.left, node.below, node.above, node.right });
+        debug_node(m.nodes[i], visited[i]);
         c += 1;
     }
     while (c < m.rowlen) : (c += 1) {
