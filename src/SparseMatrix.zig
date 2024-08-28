@@ -1,3 +1,17 @@
+//! A Sparse matrix is a grid where all cells are either empty, or contain a
+//! node. Each node is connected to a node to the node above, below and each
+//! side. this means that each row, and column is a circular doubly linked list
+//! of nodes. Each column contain a header node node, that is there, so we
+//! always hava a reference to each column. The row of header nodes also
+//! contain an extra node on the start, with index 0. This means that if we
+//! iterate to the right node 0, we find the control nodes for each column, and
+//! from those we can iterate over all the nodes in the column.
+//!
+//! One of the most powerful features of a sparse matrix is that we can remove
+//! (uninsert) node, from the matrix, and the reinsert it afterwards.
+//! if we use a spare matrix to represent a state space we can do a recursive
+//! search with really efficient backtracking. This can be used to solve the
+//! exact cover problem in a really efficient way
 const std = @import("std");
 
 const Node = struct {
@@ -25,14 +39,13 @@ pub fn init(allocator: std.mem.Allocator, rowlen: u16, capacity: u16) !SparseMat
     const first = 1;
     const last = rowlen;
 
-    var i: u16 = first + 1;
+    var i: u16 = 1;
     while (i <= last) : (i += 1) {
         m.linkneighbors(i - 1, i);
         m.makeheader(i);
     }
     m.makeheader(first);
     m.linkneighbors(last, 0);
-    m.linkneighbors(0, first);
     return m;
 }
 
@@ -75,6 +88,22 @@ pub fn colof(self: *SparseMatrix, i: u16) u16 {
         j = self.nodes[j].above;
     }
     return j - 1;
+}
+
+fn chooserow(self: *SparseMatrix, i: u16) void {
+    var j = self.nodes[i].right;
+    self.removecol(i);
+    while (j != i) : (j = self.nodes[j].right) {
+        self.removecol(j);
+    }
+}
+
+fn unchooserow(self: *SparseMatrix, i: u16) void {
+    self.reinsertcol(i);
+    var j = self.nodes[i].right;
+    while (j != i) : (j = self.nodes[j].right) {
+        self.reinsertcol(j);
+    }
 }
 
 // Header
@@ -159,21 +188,5 @@ fn reinsertcol(self: *SparseMatrix, i: u16) void {
             continue;
         }
         self.reinsertrow(j);
-    }
-}
-
-fn chooserow(self: *SparseMatrix, i: u16) void {
-    var j = self.nodes[i].right;
-    self.removecol(i);
-    while (j != i) : (j = self.nodes[j].right) {
-        self.removecol(j);
-    }
-}
-
-fn unchooserow(self: *SparseMatrix, i: u16) void {
-    self.reinsertcol(i);
-    var j = self.nodes[i].right;
-    while (j != i) : (j = self.nodes[j].right) {
-        self.reinsertcol(j);
     }
 }
