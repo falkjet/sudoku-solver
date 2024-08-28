@@ -23,7 +23,10 @@ pub fn main() !void {
     m.add(&([_]u16{ 1, 6 }));
     m.add(&([_]u16{ 3, 4, 6 }));
 
-    m.algorithmX();
+    var path = std.mem.zeroes([8]u16);
+    debug_matrix_overview(&m);
+
+    m.algorithmX(path[0..], 0);
 }
 
 const Node = struct {
@@ -67,9 +70,9 @@ const SparseMatrix = struct {
         self.allocator.free(self.nodes);
     }
 
-    fn algorithmX(self: *SparseMatrix) void {
+    fn algorithmX(self: *SparseMatrix, path: []u16, depth: u8) void {
         if (self.nodes[0].right == 0) {
-            std.debug.print("Found solution!\n", .{});
+            std.debug.print("Found solution: {any}\n", .{path[0..depth]});
             return;
         }
 
@@ -77,7 +80,8 @@ const SparseMatrix = struct {
         var node = self.nodes[col_header].below;
         while (node != col_header) : (node = self.nodes[node].below) {
             self.chooserow(node);
-            self.algorithmX();
+            path[depth] = node;
+            self.algorithmX(path, depth + 1);
             self.unchooserow(node);
         }
     }
