@@ -7,13 +7,18 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    //   1 1 2 3 4 5 6
-    //       1   1
-    //   1     1     1
-    //     1 1     1
-    //   1     1   1
-    //     1         1
+    //   1 2 3 4 5 6 7
+    //       8   9
+    //   0     1     2
+    //     3 4     5
+    //   6     7   8
+    //     9         0
     //         1 1   1
+    //
+    // Solution
+    //       8   9
+    //   6     7   8
+    //     9         0
     var m = try SparseMatrix.init(allocator, 7, 16);
     defer m.deinit(allocator);
 
