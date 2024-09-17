@@ -1,37 +1,50 @@
 const std = @import("std");
 const print = std.debug.print;
 const SparseMatrix = @import("./SparseMatrix.zig");
+const Sudoku = @import("./Sudoku.zig");
+
+const Errors = error{InputError};
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    //   1 2 3 4 5 6 7
-    //       8   9
-    //   0     1     2
-    //     3 4     5
-    //   6     7   8
-    //     9         0
-    //         1 1   1
-    //
-    // Solution
-    //       8   9
-    //   6     7   8
-    //     9         0
-    var m = try SparseMatrix.init(allocator, 7, 16);
-    defer m.deinit(allocator);
+    var sudoku = try Sudoku.init(allocator);
+    defer sudoku.deinit(allocator);
 
-    m.add(&([_]u16{ 2, 4 }));
-    m.add(&([_]u16{ 0, 3, 6 }));
-    m.add(&([_]u16{ 1, 2, 5 }));
-    m.add(&([_]u16{ 0, 3, 5 }));
-    m.add(&([_]u16{ 1, 6 }));
-    m.add(&([_]u16{ 3, 4, 6 }));
+    while (true) {
+        const stdin = std.io.getStdIn();
+        var buffer: [83]u8 = undefined;
+        const n = try stdin.read(&buffer);
+        if (n == 0) std.process.exit(0);
+        if (n != 83) return Errors.InputError;
 
-    var path = std.mem.zeroes([8]u16);
+        for (buffer[0..75], 0..) |c, i| {
+            if (c != '.') {
+                const j: u16 = @truncate(i);
+                print("PLACE: {} {} {}\n", .{ j % 9, j / 9, c - '1' });
+                sudoku.place(j % 9, j / 9, c - '1');
+            }
+        }
 
-    m.algorithmX(path[0..], 0);
+        std.debug.print("Solving...\n", .{});
+        sudoku.solve();
+        std.debug.print("Solved\n", .{});
+
+        print("Resetting\n", .{});
+        var i: u16 = 81;
+        while (true) {
+            if (i == 0) break;
+            i -= 1;
+            const c = buffer[i];
+            if (c != '.') {
+                sudoku.unplace81(@truncate(i), c - '1');
+            }
+        }
+        print("Done resetting", .{});
+        break;
+    }
 }
 
 test "simple test" {

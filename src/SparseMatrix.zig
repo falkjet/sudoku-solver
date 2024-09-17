@@ -49,24 +49,25 @@ pub fn init(allocator: std.mem.Allocator, rowlen: u16, capacity: u16) !SparseMat
     return m;
 }
 
-pub fn deinit(self: *SparseMatrix, allocator: std.mem.Allocator) void {
+pub fn deinit(self: *const SparseMatrix, allocator: std.mem.Allocator) void {
     allocator.free(self.nodes);
 }
 
-pub fn algorithmX(self: *SparseMatrix, path: []u16, depth: u8) void {
+pub fn algorithmX(self: *const SparseMatrix, path: []u16, depth: u8) ?[]u16 {
     if (self.nodes[0].right == 0) {
-        std.debug.print("Found solution: {any}\n", .{path[0..depth]});
-        return;
+        return path[0..depth];
     }
 
     const col_header = self.nodes[0].right;
     var node = self.nodes[col_header].below;
     while (node != col_header) : (node = self.nodes[node].below) {
         self.chooserow(node);
+        defer self.unchooserow(node);
+
         path[depth] = node;
-        self.algorithmX(path, depth + 1);
-        self.unchooserow(node);
+        if (self.algorithmX(path, depth + 1)) |r| return r;
     }
+    return null;
 }
 
 pub fn add(self: *SparseMatrix, cols: []const u16) void {
@@ -90,7 +91,7 @@ pub fn colof(self: *SparseMatrix, i: u16) u16 {
     return j - 1;
 }
 
-fn chooserow(self: *SparseMatrix, i: u16) void {
+pub fn chooserow(self: *const SparseMatrix, i: u16) void {
     var j = self.nodes[i].right;
     self.removecol(i);
     while (j != i) : (j = self.nodes[j].right) {
@@ -98,7 +99,7 @@ fn chooserow(self: *SparseMatrix, i: u16) void {
     }
 }
 
-fn unchooserow(self: *SparseMatrix, i: u16) void {
+pub fn unchooserow(self: *const SparseMatrix, i: u16) void {
     self.reinsertcol(i);
     var j = self.nodes[i].right;
     while (j != i) : (j = self.nodes[j].right) {
@@ -112,7 +113,7 @@ fn header(self: *SparseMatrix, col: u16) u16 {
     return col + 1;
 }
 
-fn isheader(self: *SparseMatrix, node: u16) bool {
+fn isheader(self: *const SparseMatrix, node: u16) bool {
     return node <= self.rowlen;
 }
 
@@ -139,7 +140,7 @@ fn vertical_insert_above(self: *const SparseMatrix, new: u16, node: u16) void {
     self.vertical_reinsert(new);
 }
 
-fn removerow(self: *SparseMatrix, i: u16) void {
+fn removerow(self: *const SparseMatrix, i: u16) void {
     var j = self.nodes[i].right;
     while (j != i) : (j = self.nodes[j].right) {
         const node2 = self.nodes[j];
@@ -148,7 +149,7 @@ fn removerow(self: *SparseMatrix, i: u16) void {
     }
 }
 
-fn reinsertrow(self: *SparseMatrix, i: u16) void {
+fn reinsertrow(self: *const SparseMatrix, i: u16) void {
     const node = self.nodes[i];
     self.nodes[node.above].below = i;
     self.nodes[node.below].above = i;
@@ -163,7 +164,7 @@ fn reinsertrow(self: *SparseMatrix, i: u16) void {
 
 // Takes node as argument and uninserts the header and removes all
 // rows where the column has a node except the row of the input node
-fn removecol(self: *SparseMatrix, i: u16) void {
+fn removecol(self: *const SparseMatrix, i: u16) void {
     var j = self.nodes[i].below;
     while (j != i) : (j = self.nodes[j].below) {
         if (self.isheader(j)) {
@@ -178,7 +179,7 @@ fn removecol(self: *SparseMatrix, i: u16) void {
     }
 }
 
-fn reinsertcol(self: *SparseMatrix, i: u16) void {
+fn reinsertcol(self: *const SparseMatrix, i: u16) void {
     var j = self.nodes[i].below;
     while (j != i) : (j = self.nodes[j].below) {
         if (self.isheader(j)) {
