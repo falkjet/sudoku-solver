@@ -24,7 +24,7 @@ pub fn main() !void {
             if (c != '.') {
                 const j: u16 = @truncate(i);
                 print("PLACE: {} {} {}\n", .{ j % 9, j / 9, c - '1' });
-                sudoku.place(j % 9, j / 9, c - '1');
+                sudoku.place(j / 9, j % 9, c - '1');
             }
         }
 

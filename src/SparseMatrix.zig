@@ -58,7 +58,7 @@ pub fn algorithmX(self: *const SparseMatrix, path: []u16, depth: u8) ?[]u16 {
         return path[0..depth];
     }
 
-    const col_header = self.nodes[0].right;
+    const col_header = self.shortest_column();
     var node = self.nodes[col_header].below;
     while (node != col_header) : (node = self.nodes[node].below) {
         self.chooserow(node);
@@ -68,6 +68,32 @@ pub fn algorithmX(self: *const SparseMatrix, path: []u16, depth: u8) ?[]u16 {
         if (self.algorithmX(path, depth + 1)) |r| return r;
     }
     return null;
+}
+
+pub fn shortest_column(self: *const SparseMatrix) u16 {
+    var smallest = self.nodes[0].right;
+    var height = self.column_height(smallest);
+
+    var col = self.nodes[smallest].right;
+    while (col != 0) : (col = self.nodes[col].right) {
+        const h = self.column_height(col);
+        if (h < height) {
+            height = h;
+            smallest = col;
+        }
+    }
+
+    return smallest;
+}
+
+pub fn column_height(self: *const SparseMatrix, col: u16) u8 {
+    var i: u8 = 0;
+    var node = self.nodes[col].below;
+
+    while (node != col) : (node = self.nodes[node].below) {
+        i += 1;
+    }
+    return i;
 }
 
 pub fn add(self: *SparseMatrix, cols: []const u16) void {
