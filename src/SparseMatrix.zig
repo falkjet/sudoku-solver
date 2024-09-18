@@ -1,15 +1,17 @@
-//! A Sparse matrix is a grid where all cells are either empty, or contain a
+//! The dancing links matrix is a way to represent a sparse matrix.
+//! A sparse matrix is a grid where some of the cells are empty.
+//! In a dancing links structure the non empty cells are represented by a
 //! node. Each node is connected to a node to the node above, below and each
-//! side. this means that each row, and column is a circular doubly linked list
+//! side. Each row, and column is a circular doubly linked list
 //! of nodes. Each column contain a header node node, that is there, so we
 //! always hava a reference to each column. The row of header nodes also
 //! contain an extra node on the start, with index 0. This means that if we
 //! iterate to the right node 0, we find the control nodes for each column, and
 //! from those we can iterate over all the nodes in the column.
 //!
-//! One of the most powerful features of a sparse matrix is that we can remove
-//! (uninsert) node, from the matrix, and the reinsert it afterwards.
-//! if we use a spare matrix to represent a state space we can do a recursive
+//! One of the most powerful features of a dancing links structure is that we
+//! can remove (uninsert) node, and the reinsert it afterwards. Ff we use a
+//! dancing links structure to represent a state space we can do a recursive
 //! search with really efficient backtracking. This can be used to solve the
 //! exact cover problem in a really efficient way
 const std = @import("std");
@@ -25,10 +27,10 @@ nodes: []Node,
 rowlen: u16,
 i: u16,
 
-const SparseMatrix = @This();
+const DancingLinks = @This();
 
-pub fn init(allocator: std.mem.Allocator, rowlen: u16, capacity: u16) !SparseMatrix {
-    const m = SparseMatrix{
+pub fn init(allocator: std.mem.Allocator, rowlen: u16, capacity: u16) !DancingLinks {
+    const m = DancingLinks{
         .nodes = try allocator.alloc(Node, capacity + rowlen + 1),
         .rowlen = rowlen,
         .i = rowlen + 1,
@@ -49,11 +51,11 @@ pub fn init(allocator: std.mem.Allocator, rowlen: u16, capacity: u16) !SparseMat
     return m;
 }
 
-pub fn deinit(self: *const SparseMatrix, allocator: std.mem.Allocator) void {
+pub fn deinit(self: *const DancingLinks, allocator: std.mem.Allocator) void {
     allocator.free(self.nodes);
 }
 
-pub fn algorithmX(self: *const SparseMatrix, path: []u16, depth: u8) ?[]u16 {
+pub fn algorithmX(self: *const DancingLinks, path: []u16, depth: u8) ?[]u16 {
     if (self.nodes[0].right == 0) {
         return path[0..depth];
     }
@@ -70,7 +72,7 @@ pub fn algorithmX(self: *const SparseMatrix, path: []u16, depth: u8) ?[]u16 {
     return null;
 }
 
-pub fn shortest_column(self: *const SparseMatrix) u16 {
+pub fn shortest_column(self: *const DancingLinks) u16 {
     var smallest = self.nodes[0].right;
     var height = self.column_height(smallest);
 
@@ -86,7 +88,7 @@ pub fn shortest_column(self: *const SparseMatrix) u16 {
     return smallest;
 }
 
-pub fn column_height(self: *const SparseMatrix, col: u16) u8 {
+pub fn column_height(self: *const DancingLinks, col: u16) u8 {
     var i: u8 = 0;
     var node = self.nodes[col].below;
 
@@ -96,7 +98,7 @@ pub fn column_height(self: *const SparseMatrix, col: u16) u8 {
     return i;
 }
 
-pub fn add(self: *SparseMatrix, cols: []const u16) void {
+pub fn add(self: *DancingLinks, cols: []const u16) void {
     var i: u16 = 1; // index into nodes
     while (i < cols.len) : (i += 1) {
         const col = cols[i];
@@ -109,7 +111,7 @@ pub fn add(self: *SparseMatrix, cols: []const u16) void {
     self.i += i;
 }
 
-pub fn colof(self: *SparseMatrix, i: u16) u16 {
+pub fn colof(self: *DancingLinks, i: u16) u16 {
     var j = i;
     while (!self.isheader(j)) {
         j = self.nodes[j].above;
@@ -117,7 +119,7 @@ pub fn colof(self: *SparseMatrix, i: u16) u16 {
     return j - 1;
 }
 
-pub fn chooserow(self: *const SparseMatrix, i: u16) void {
+pub fn chooserow(self: *const DancingLinks, i: u16) void {
     var j = self.nodes[i].right;
     self.removecol(i);
     while (j != i) : (j = self.nodes[j].right) {
@@ -125,7 +127,7 @@ pub fn chooserow(self: *const SparseMatrix, i: u16) void {
     }
 }
 
-pub fn unchooserow(self: *const SparseMatrix, i: u16) void {
+pub fn unchooserow(self: *const DancingLinks, i: u16) void {
     self.reinsertcol(i);
     var j = self.nodes[i].right;
     while (j != i) : (j = self.nodes[j].right) {
@@ -134,39 +136,39 @@ pub fn unchooserow(self: *const SparseMatrix, i: u16) void {
 }
 
 // Header
-fn header(self: *SparseMatrix, col: u16) u16 {
+fn header(self: *DancingLinks, col: u16) u16 {
     _ = self;
     return col + 1;
 }
 
-fn isheader(self: *const SparseMatrix, node: u16) bool {
+fn isheader(self: *const DancingLinks, node: u16) bool {
     return node <= self.rowlen;
 }
 
 /// Set the up and down pointer of i to point to i
-fn makeheader(self: *const SparseMatrix, i: u16) void {
+fn makeheader(self: *const DancingLinks, i: u16) void {
     self.nodes[i].above = i;
     self.nodes[i].below = i;
 }
 
 /// connect a left and right node with each other
-fn linkneighbors(self: *const SparseMatrix, left: u16, right: u16) void {
+fn linkneighbors(self: *const DancingLinks, left: u16, right: u16) void {
     self.nodes[left].right = right;
     self.nodes[right].left = left;
 }
 
-fn vertical_reinsert(self: *const SparseMatrix, i: u16) void {
+fn vertical_reinsert(self: *const DancingLinks, i: u16) void {
     self.nodes[self.nodes[i].above].below = i;
     self.nodes[self.nodes[i].below].above = i;
 }
 
-fn vertical_insert_above(self: *const SparseMatrix, new: u16, node: u16) void {
+fn vertical_insert_above(self: *const DancingLinks, new: u16, node: u16) void {
     self.nodes[new].below = node;
     self.nodes[new].above = self.nodes[node].above;
     self.vertical_reinsert(new);
 }
 
-fn removerow(self: *const SparseMatrix, i: u16) void {
+fn removerow(self: *const DancingLinks, i: u16) void {
     var j = self.nodes[i].right;
     while (j != i) : (j = self.nodes[j].right) {
         const node2 = self.nodes[j];
@@ -175,7 +177,7 @@ fn removerow(self: *const SparseMatrix, i: u16) void {
     }
 }
 
-fn reinsertrow(self: *const SparseMatrix, i: u16) void {
+fn reinsertrow(self: *const DancingLinks, i: u16) void {
     const node = self.nodes[i];
     self.nodes[node.above].below = i;
     self.nodes[node.below].above = i;
@@ -190,7 +192,7 @@ fn reinsertrow(self: *const SparseMatrix, i: u16) void {
 
 // Takes node as argument and uninserts the header and removes all
 // rows where the column has a node except the row of the input node
-fn removecol(self: *const SparseMatrix, i: u16) void {
+fn removecol(self: *const DancingLinks, i: u16) void {
     var j = self.nodes[i].below;
     while (j != i) : (j = self.nodes[j].below) {
         if (self.isheader(j)) {
@@ -205,7 +207,7 @@ fn removecol(self: *const SparseMatrix, i: u16) void {
     }
 }
 
-fn reinsertcol(self: *const SparseMatrix, i: u16) void {
+fn reinsertcol(self: *const DancingLinks, i: u16) void {
     var j = self.nodes[i].below;
     while (j != i) : (j = self.nodes[j].below) {
         if (self.isheader(j)) {

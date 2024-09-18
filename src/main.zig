@@ -1,6 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const SparseMatrix = @import("./SparseMatrix.zig");
+const DancingLinks = @import("./DancingLinks.zig");
 const Sudoku = @import("./Sudoku.zig");
 
 const Errors = error{InputError};

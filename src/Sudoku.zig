@@ -1,12 +1,12 @@
 const std = @import("std");
 const Sudoku = @This();
-const SparseMatrix = @import("./SparseMatrix.zig");
+const DancingLinks = @import("./DancingLinks.zig");
 
-dlx: SparseMatrix,
+dlx: DancingLinks,
 solution: [81]u8,
 
 pub fn init(allocator: std.mem.Allocator) !Sudoku {
-    var dlx = try SparseMatrix.init(allocator, 9 * 9 * 4, 4 * 9 * 9 * 9);
+    var dlx = try DancingLinks.init(allocator, 9 * 9 * 4, 4 * 9 * 9 * 9);
     for (0..9 * 9 * 9) |i| {
         const pos: u16 = @intCast(i / 9); // [0, 81⟩
         const value: u16 = @intCast(i % 9);
