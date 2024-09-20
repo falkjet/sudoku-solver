@@ -28,8 +28,8 @@
         devShells.default =
           pkgs.mkShell { nativeBuildInputs = with pkgs; [ zigpkgs.master ]; };
         packages = rec {
-          dancing-links = pkgs.stdenv.mkDerivation {
-            name = "dancing-links";
+          sudoku-solver = pkgs.stdenv.mkDerivation {
+            name = "sudoku-solver";
             nativeBuildInputs = with pkgs; [ zigpkgs.master ];
             buildPhase = ''
               ZIG_GLOBAL_CACHE_DIR="$PWD" zig build --release=fast
@@ -39,7 +39,7 @@
             '';
             src = ./.;
           };
-          default = dancing-links;
+          default = sudoku-solver;
         };
 
         # For compatibility with older versions of the `nix` binary
