@@ -13,16 +13,16 @@ pub fn main() !void {
     var sudoku = try Sudoku.init(allocator);
     defer sudoku.deinit(allocator);
 
+    var reader = std.io.bufferedReader(std.io.getStdIn().reader());
+    const stdout = std.io.getStdOut();
+
     while (true) {
-        const stdin = std.io.getStdIn();
-        const stdout = std.io.getStdOut();
+        var buffer: [83]u8 = undefined; // 83 chars to leave room for crlf
+        const line = try reader.reader().readUntilDelimiterOrEof(buffer[0..], '\n') orelse {
+            std.process.exit(0);
+        };
 
-        var buffer: [83]u8 = undefined;
-        const n = try stdin.read(&buffer);
-        if (n == 0) std.process.exit(0);
-        if (n != 83) return Errors.InputError;
-
-        for (buffer[0..81], 0..) |c, i| {
+        for (line[0..81], 0..) |c, i| {
             if (c != '.') {
                 const j: u16 = @truncate(i);
                 sudoku.place(j / 9, j % 9, c - '1');
@@ -37,8 +37,7 @@ pub fn main() !void {
         _ = try stdout.write(&.{'\n'});
 
         var i: u16 = 81;
-        while (true) {
-            if (i == 0) break;
+        while (i > 0) {
             i -= 1;
             const c = buffer[i];
             if (c != '.') {
