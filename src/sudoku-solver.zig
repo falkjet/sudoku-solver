@@ -1,17 +1,12 @@
 const std = @import("std");
 const print = std.debug.print;
-const DancingLinks = @import("./DancingLinks.zig");
 const Sudoku = @import("./Sudoku.zig");
 
 const Errors = error{InputError};
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    var sudoku = try Sudoku.init(allocator);
-    defer sudoku.deinit(allocator);
+    var sudoku = try Sudoku.init();
+    defer sudoku.deinit();
 
     var reader = std.io.bufferedReader(std.io.getStdIn().reader());
     const stdout = std.io.getStdOut();
