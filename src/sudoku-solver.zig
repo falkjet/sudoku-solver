@@ -16,14 +16,16 @@ pub fn main() !void {
     var reader = std.io.bufferedReader(std.io.getStdIn().reader());
     const stdout = std.io.getStdOut();
 
+    var buffer: [83]u8 = undefined; // 83 chars to leave room for crlf
+    _ = try reader.reader().readUntilDelimiterOrEof(buffer[0..], '\n');
+
     while (true) {
-        var buffer: [83]u8 = undefined; // 83 chars to leave room for crlf
         const line = try reader.reader().readUntilDelimiterOrEof(buffer[0..], '\n') orelse {
             std.process.exit(0);
         };
 
         for (line[0..81], 0..) |c, i| {
-            if (c != '.') {
+            if (c != '0') {
                 const j: u16 = @truncate(i);
                 sudoku.place(j / 9, j % 9, c - '1');
             }
@@ -40,7 +42,7 @@ pub fn main() !void {
         while (i > 0) {
             i -= 1;
             const c = buffer[i];
-            if (c != '.') {
+            if (c != '0') {
                 sudoku.unplace81(@truncate(i), c - '1');
             }
         }
