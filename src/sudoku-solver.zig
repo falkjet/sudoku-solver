@@ -9,7 +9,7 @@ pub fn main() !void {
     defer sudoku.deinit();
 
     var reader = std.io.bufferedReader(std.io.getStdIn().reader());
-    const stdout = std.io.getStdOut();
+    var stdout = std.io.bufferedWriter(std.io.getStdOut().writer());
 
     var buffer: [83]u8 = undefined; // 83 chars to leave room for crlf
     _ = try reader.reader().readUntilDelimiterOrEof(buffer[0..], '\n');
