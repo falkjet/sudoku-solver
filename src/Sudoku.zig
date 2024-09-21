@@ -5,18 +5,36 @@ const column_count = 9 * 9 * 4;
 const normal_node_count = 4 * 9 * 9 * 9;
 const total_node_count = normal_node_count + column_count + 1;
 
+col_pqueue: [column_count + 10]struct { left: u16, right: u16 },
 col_sizes: [column_count]u8,
 nodes: [total_node_count]Node,
 solution: [81]u8,
 
 pub fn init() !Sudoku {
     var self = Sudoku{
+        .col_pqueue = undefined,
         .col_sizes = undefined,
         .nodes = std.mem.zeroes([total_node_count]Node),
         .solution = std.mem.zeroes([81]u8),
     };
 
     @memset(self.col_sizes[0..], 9);
+
+    // Setup priority queue
+    for (0..column_count - 1) |i_| {
+        const i: u16 = @intCast(i_);
+        self.col_pqueue[i].right = i + 1;
+        self.col_pqueue[i + 1].left = i;
+    }
+    for (column_count..column_count + 9) |i_| {
+        const i: u16 = @intCast(i_);
+        self.col_pqueue[i].right = i;
+        self.col_pqueue[i].left = i;
+    }
+    self.col_pqueue[0].left = column_count + 9;
+    self.col_pqueue[column_count + 9].right = 0;
+    self.col_pqueue[column_count + 9].left = column_count - 1;
+    self.col_pqueue[column_count - 1].right = column_count + 9;
 
     // Setup header row
     for (0..column_count + 1) |i| {
@@ -108,19 +126,12 @@ fn algorithmX(self: *Sudoku, path: []u16, depth: u8) ?[]u16 {
 }
 
 fn shortest_column(self: *Sudoku) u16 {
-    var smallest = self.right_of(0);
-    var height = self.col_sizes[smallest];
-
-    var col = self.right_of(smallest);
-    while (col != 0) : (col = self.right_of(col)) {
-        const h = self.col_sizes[col - 1];
-        if (h < height) {
-            height = h;
-            smallest = col;
+    for (column_count..column_count + 10) |i| {
+        if (self.col_pqueue[i].right != i) {
+            return self.header(self.col_pqueue[i].right);
         }
     }
-
-    return smallest;
+    @panic("Unreachable");
 }
 
 fn column_height(self: *const Sudoku, col: u16) u8 {
@@ -164,9 +175,15 @@ fn removecol(self: *Sudoku, i: u16) void {
         }
         self.removerow(j);
     }
+
+    const col = colof(i);
+    self.remove_col_from_pqueue(col);
 }
 
 fn reinsertcol(self: *Sudoku, i: u16) void {
+    const col = colof(i);
+    self.insert_col_into_pqueue(col);
+
     var j = self.nodes[i].below;
     while (j != i) : (j = self.nodes[j].below) {
         if (self.isheader(j)) {
@@ -181,24 +198,59 @@ fn reinsertcol(self: *Sudoku, i: u16) void {
 
 fn removerow(self: *Sudoku, i: u16) void {
     var j = self.right_of(i);
-    while (j != i) : (j = self.right_of(j)) {
-        self.col_sizes[colof(j)] -= 1;
-
-        const node = self.nodes[j];
-        self.nodes[node.above].below = node.below;
-        self.nodes[node.below].above = node.above;
-    }
+    while (j != i) : (j = self.right_of(j)) self.vertical_uninsert_node(j);
 }
 
 fn reinsertrow(self: *Sudoku, i: u16) void {
-    var j = self.right_of(i);
-    while (j != i) : (j = self.right_of(j)) {
-        self.col_sizes[colof(j)] += 1;
+    var j = self.left_of(i);
+    while (j != i) : (j = self.left_of(j)) self.vertical_reinsert_node(j);
+}
 
-        const node = self.nodes[j];
-        self.nodes[node.above].below = j;
-        self.nodes[node.below].above = j;
-    }
+fn vertical_uninsert_node(self: *Sudoku, j: u16) void {
+    const col = colof(j);
+    self.col_sizes[col] -= 1;
+    self.update_col_priority(col);
+
+    const node = self.nodes[j];
+    self.nodes[node.above].below = node.below;
+    self.nodes[node.below].above = node.above;
+}
+
+fn vertical_reinsert_node(self: *Sudoku, j: u16) void {
+    const col = colof(j);
+    self.col_sizes[col] += 1;
+    self.update_col_priority(col);
+
+    const node = self.nodes[j];
+    self.nodes[node.above].below = j;
+    self.nodes[node.below].above = j;
+}
+
+fn update_col_priority(self: *Sudoku, col: u16) void {
+    self.remove_col_from_pqueue(col);
+    self.insert_col_into_pqueue(col);
+}
+
+fn remove_col_from_pqueue(self: *Sudoku, col: u16) void {
+    const node = self.col_pqueue[col];
+
+    self.pqueue_link(node.left, node.right);
+    self.pqueue_link(col, col);
+}
+
+fn pqueue_link(self: *Sudoku, left: u16, right: u16) void {
+    self.col_pqueue[left].right = right;
+    self.col_pqueue[right].left = left;
+}
+
+fn insert_col_into_pqueue(self: *Sudoku, col: u16) void {
+    const priority = self.col_sizes[col];
+
+    const head = column_count + @as(u16, priority);
+    const right_of_header = self.col_pqueue[head].right;
+
+    self.pqueue_link(head, col);
+    self.pqueue_link(col, right_of_header);
 }
 
 pub fn colof(node: u16) u16 {
