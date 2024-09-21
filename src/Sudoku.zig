@@ -26,7 +26,7 @@ pub fn init() !Sudoku {
         self.linkneighbors(j, (j + 1) % (column_count + 1));
     }
 
-    // Setup row representing constaints
+    // Setup row representing constraints
     for (0..9 * 9 * 9) |i| {
         const pos: u16 = @intCast(i / 9); // [0, 81⟩
         const value: u16 = @intCast(i % 9);
@@ -57,23 +57,15 @@ pub fn deinit(self: *Sudoku) void {
 }
 
 // Sudoku interface
-
-pub fn place81(self: *Sudoku, i: u16, n: u8) void {
-    self.solution[i] = n;
-    const j = 4 * 9 * i + 4 * n;
-    self.dlx.chooserow(1 + 4 * 81 + j);
-}
-
-pub fn unplace81(self: *Sudoku, i: u16, n: u8) void {
-    const j = 4 * 9 * i + 4 * n;
-    self.unchooserow(1 + 4 * 81 + j);
-}
-
-pub fn place(self: *Sudoku, row: u16, col: u16, n: u8) void {
-    const i = row * 9 + col;
+pub fn place(self: *Sudoku, i: u16, n: u8) void {
     self.solution[i] = n;
     const j = 4 * 9 * i + 4 * n;
     self.chooserow(1 + 4 * 81 + j);
+}
+
+pub fn unplace(self: *Sudoku, i: u16, n: u8) void {
+    const j = 4 * 9 * i + 4 * n;
+    self.unchooserow(1 + 4 * 81 + j);
 }
 
 pub fn solve(self: *Sudoku) void {
@@ -237,7 +229,7 @@ fn vertical_insert_above(self: *Sudoku, new: u16, node: u16) void {
     self.nodes[self.nodes[new].below].above = new;
 }
 
-// Utils to read data structure
+// Utils to read dlx data structure
 fn header(self: *Sudoku, col: u16) u16 {
     _ = self;
     return col + 1;
