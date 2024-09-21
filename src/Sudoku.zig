@@ -101,7 +101,7 @@ fn algorithmX(self: *Sudoku, path: []u16, depth: u8) ?[]u16 {
 
 fn shortest_column(self: *Sudoku) u16 {
     var smallest = self.right_of(0);
-    var height = self.col_sizes[smallest];
+    var height = self.col_sizes[smallest - 1];
 
     var col = self.right_of(smallest);
     while (col != 0) : (col = self.right_of(col)) {
