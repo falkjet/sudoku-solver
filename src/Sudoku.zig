@@ -3,7 +3,7 @@ const Sudoku = @This();
 
 const column_count = 9 * 9 * 4;
 const normal_node_count = 4 * 9 * 9 * 9;
-const total_node_count = normal_node_count + column_count + 1;
+const total_node_count = 1 + column_count + normal_node_count;
 
 col_sizes: [column_count]u8,
 nodes: [total_node_count]Node,
@@ -28,16 +28,16 @@ pub fn init() !Sudoku {
 
     // Setup row representing constraints
     for (0..9 * 9 * 9) |i| {
-        const pos: u16 = @intCast(i / 9); // [0, 81⟩
         const value: u16 = @intCast(i % 9);
+        const pos: u16 = @intCast(i / 9); // [0, 81⟩
         const row = pos / 9; // [0, 9⟩
         const col = pos % 9; // [0, 9⟩
-        const square = col / 3 + 3 * (row / 3);
+        const box = col / 3 + 3 * (row / 3);
 
         const a = 0 * 81 + pos;
         const b = 1 * 81 + 9 * row + value;
         const c = 2 * 81 + 9 * col + value;
-        const d = 3 * 81 + 9 * square + value;
+        const d = 3 * 81 + 9 * box + value;
 
         const offset = column_count + 1 + 4 * @as(u16, @intCast(i));
         self.vertical_insert_above(offset + 0, self.header(a));
