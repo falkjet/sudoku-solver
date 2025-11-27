@@ -26,7 +26,7 @@
       let pkgs = import nixpkgs { inherit overlays system; };
       in rec {
         devShells.default =
-          pkgs.mkShell { nativeBuildInputs = with pkgs; [ zigpkgs.master ]; };
+          pkgs.mkShell { nativeBuildInputs = with pkgs; [ zigpkgs."0.14.0" ]; };
         packages = rec {
           sudoku-solver = pkgs.stdenv.mkDerivation {
             name = "sudoku-solver";
