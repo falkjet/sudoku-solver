@@ -30,7 +30,7 @@
         packages = rec {
           sudoku-solver = pkgs.stdenv.mkDerivation {
             name = "sudoku-solver";
-            nativeBuildInputs = with pkgs; [ zigpkgs.master ];
+            nativeBuildInputs = with pkgs; [ zigpkgs."0.14.0" ];
             buildPhase = ''
               ZIG_GLOBAL_CACHE_DIR="$PWD" zig build --release=fast
             '';
